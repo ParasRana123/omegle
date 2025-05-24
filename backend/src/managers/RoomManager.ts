@@ -1,4 +1,4 @@
-import { User } from "./userManager";
+import { User } from "./UserManager";
 
 let GLOBAL_ROOM_ID = 1;
 
@@ -26,7 +26,7 @@ export class RoomManager {
     }
 
     onOffer(roomId: string , sdp: string) {
-        const user2 = this.rooms.get(roomId)?.user1;
+        const user2 = this.rooms.get(roomId)?.user2;
         user2?.socket.emit("offer" , {
             sdp
         })

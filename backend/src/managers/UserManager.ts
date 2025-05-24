@@ -46,6 +46,7 @@ export class UserManager {
         }
 
         const room = this.roomManager.createRoom(user1 , user2);
+        this.clearQueue();
     }
 
     generate() {
