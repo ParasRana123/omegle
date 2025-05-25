@@ -24,11 +24,13 @@ export class UserManager {
             name , socket
         })
         this.queue.push(socket.id);
+        socket.send("lobby");
         this.clearQueue();
         this.initHandlers(socket);
     }
 
     removeUser(socketId: string) {
+        const user = this.users.find(x => x.socket.id === socketId);
         this.users = this.users.filter(x => x.socket.id !== socketId);
         this.queue = this.queue.filter(x => x === socketId);
     }

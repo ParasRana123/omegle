@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom"
 import { io, Socket } from "socket.io-client"
 
-const URL = "http://localhost:3000"
+const URL = "http://localhost:3001"
 
 export function Room() {
     const [searchParams , setSearchParams] = useSearchParams();
@@ -11,9 +11,7 @@ export function Room() {
 
     useEffect(() => {
         // logic to init the user to the room
-        const socket = io(URL , {
-            autoConnect: false
-        });
+        const socket = io(URL);
         setSocket(socket);
 
         socket.on("send-offer" , ({roomId}) => {
