@@ -29,7 +29,7 @@ export class UserManager {
     }
 
     removeUser(socketId: string) {
-        this.users = this.users.filter(x => x.socket.id === socketId);
+        this.users = this.users.filter(x => x.socket.id !== socketId);
         this.queue = this.queue.filter(x => x === socketId);
     }
 
