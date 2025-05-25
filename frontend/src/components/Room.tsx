@@ -8,7 +8,7 @@ export function Room() {
     const [searchParams , setSearchParams] = useSearchParams();
     const name = searchParams.get('name');
     const [socket , setSocket] = useState<null | Socket>(null);
-    const {lobby , setLobby} = useState(true);
+    const [lobby , setLobby] = useState(true);
 
     useEffect(() => {
         // logic to init the user to the room

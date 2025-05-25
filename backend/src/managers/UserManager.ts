@@ -36,16 +36,25 @@ export class UserManager {
     }
 
     clearQueue() {
+        console.log("Inside clear queues");
+        console.log(this.queue.length);
         if(this.queue.length < 2) {
             return;
         }
 
+        console.log(this.users);
+        console.log(this.queue);
         const user1 = this.users.find(x => x.socket.id === this.queue.pop());
         const user2 = this.users.find(x => x.socket.id === this.queue.pop());
+
+        console.log(user1);
+        console.log(user2);
 
         if(!user1 || !user2) {
             return;
         }
+
+        console.log("Creating room");
 
         const room = this.roomManager.createRoom(user1 , user2);
         this.clearQueue();
