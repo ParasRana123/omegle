@@ -44,11 +44,10 @@ export class UserManager {
 
         console.log(this.users);
         console.log(this.queue);
-        const user1 = this.users.find(x => x.socket.id === this.queue.pop());
-        const user2 = this.users.find(x => x.socket.id === this.queue.pop());
-
-        console.log(user1);
-        console.log(user2);
+        const id1 = this.queue.pop();
+        const id2 = this.queue.pop();
+        const user1 = this.users.find(x => x.socket.id === id1);
+        const user2 = this.users.find(x => x.socket.id === id2);
 
         if(!user1 || !user2) {
             return;
@@ -66,9 +65,11 @@ export class UserManager {
 
     initHandlers(socket: Socket) {
         socket.on("offer" , ({sdp , roomId}: {sdp: string , roomId: string}) => {
+            console.log("Offer recieved");
             this.roomManager.onOffer(roomId , sdp);
         })
         socket.on("answer" , ({sdp , roomId}: {sdp: string , roomId: string}) => {
+            console.log("Answer recieved");
             this.roomManager.onAnswer(roomId , sdp);
         })
     }
