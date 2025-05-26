@@ -38,7 +38,9 @@ export function Landing() {
                 setName(e.target.value);
             }}>
             </input>
-            <Link to={`/room/?name=${name}`}>Join</Link>
+            <button onClick={() => {
+                setJoined(true);
+            }}>Join</button>
         </div>;
     }
 

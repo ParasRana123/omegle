@@ -10,8 +10,8 @@ export const Room = ({
     localVideoTrack,
 }: {
     name: string,
-    localAudioTrack: MediaStreamTrack,
-    localVideoTrack: MediaStreamTrack,
+    localAudioTrack: MediaStreamTrack | null,
+    localVideoTrack: MediaStreamTrack | null,
 }) => {
     const [searchParams , setSearchParams] = useSearchParams();
     const [socket , setSocket] = useState<null | Socket>(null);
@@ -32,8 +32,13 @@ export const Room = ({
             setLobby(false);
             const pc = new RTCPeerConnection();
             setSendingPc(pc);
-            pc.addTrack(localAudioTrack);
-            pc.addTrack(localVideoTrack);
+            if(localVideoTrack) {
+                pc.addTrack(localVideoTrack);
+            }
+
+            if(localAudioTrack) {
+                pc.addTrack(localAudioTrack);
+            }
 
             pc.onicecandidate = async () => {
                 const sdp = await pc.createOffer();
@@ -90,15 +95,11 @@ export const Room = ({
         setSocket(socket);
     } , [name])
 
-    if(!lobby) {
-        return <div>
-            Waiting to connect
-        </div>
-    }
-
     return <div>
         Hi {name}
-        <video width={400} height={400} />
+        <video width={400} height={400} ref={remoteVideoRef}/>
+        {lobby ? "Waiting to connect you to someone" : null};
+        if
         <video width={400} height={400} ref={remoteVideoRef}/>
     </div>
 }
