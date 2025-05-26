@@ -14,13 +14,14 @@ export function Landing() {
             audio: true
         })
         const audioTrack = stream.getAudioTracks()[0];
-        const videoTrack = stream.getAudioTracks()[0];
+        const videoTrack = stream.getVideoTracks()[0];
         setLocalAudioTrack(audioTrack);
         setLocalVideoTrack(videoTrack);
         if(!videoRef.current) {
             return;
         }
         videoRef.current.srcObject = new MediaStream([videoTrack]);
+        videoRef.current.play();
     }
 
     useEffect(() => {
@@ -30,7 +31,7 @@ export function Landing() {
     } , [videoRef])
 
     return <div>
-        <video ref={videoRef}></video>
+        <video autoPlay ref={videoRef}></video>
         <input type="text" onChange={(e) => {
             setName(e.target.value);
         }}>
