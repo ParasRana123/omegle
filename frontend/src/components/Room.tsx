@@ -41,12 +41,19 @@ export const Room = ({
                 pc.addTrack(localAudioTrack);
             }
 
-            pc.onicecandidate = async () => {
+            // pc.onicecandidate = async (e) => {
+            //     if(e.candidate) {
+            //         pc.addIceCandidate(e.candidate);
+            //     }
+            // }
+
+            pc.onnegotiationneeded = async () => {
+                alert("On negotiation needed");
                 const sdp = await pc.createOffer();
                 socket.emit("offer" , {
                     sdp,
                     roomId
-            })
+                })
             }
         })
 
@@ -82,10 +89,7 @@ export const Room = ({
         socket.on("answer" , ({roomId , sdp: remoteSdp}) => {
             setLobby(false);
             setSendingPc(pc => {
-                pc?.setRemoteDescription({
-                    type: "answer",
-                    sdp: remoteSdp
-                })
+                pc?.setRemoteDescription(remoteSdp)
                 return pc;
             })
         })
