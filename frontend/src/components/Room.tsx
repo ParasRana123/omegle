@@ -50,12 +50,12 @@ export const Room = ({
             }
         })
 
-        socket.on("offer" , async ({roomId , offer}) => {
+        socket.on("offer" , async ({roomId , sdp: remoteSdp}) => {
             alert("Send answer please");
             setLobby(false);
             // this side will receive the offer and then send the answer object very similar to the CreateOffer object
             const pc = new RTCPeerConnection();
-            pc.setRemoteDescription({sdp: offer , type: "offer"});
+            pc.setRemoteDescription(remoteSdp);
             const sdp = await pc.createAnswer();
             const stream = new MediaStream();
             if(remoteVideoRef.current) {
@@ -79,12 +79,12 @@ export const Room = ({
             })
         })
 
-        socket.on("answer" , ({roomId , answer}) => {
+        socket.on("answer" , ({roomId , sdp: remoteSdp}) => {
             setLobby(false);
             setSendingPc(pc => {
                 pc?.setRemoteDescription({
                     type: "answer",
-                    sdp: answer
+                    sdp: remoteSdp
                 })
                 return pc;
             })
