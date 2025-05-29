@@ -46,6 +46,7 @@ export const Room = ({
                     socket.emit("add-ice-candidate" , {
                         candidate: e.candidate,
                         type: "sender"
+                        roomId
                     })
                 }
             }
@@ -123,7 +124,7 @@ export const Room = ({
                 });
             }
             else {
-                setReceivingPc(pc => {
+                setSendingPc(pc => {
                     pc?.addIceCandidate(candidate);
                     return;
                 });
