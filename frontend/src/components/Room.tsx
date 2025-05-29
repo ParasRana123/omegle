@@ -50,6 +50,7 @@ export const Room = ({
             pc.onnegotiationneeded = async () => {
                 alert("On negotiation needed");
                 const sdp = await pc.createOffer();
+                pc.setLocalDescription(sdp.sdp);
                 socket.emit("offer" , {
                     sdp,
                     roomId
@@ -64,6 +65,7 @@ export const Room = ({
             const pc = new RTCPeerConnection();
             pc.setRemoteDescription(remoteSdp);
             const sdp = await pc.createAnswer();
+            pc.setLocalDescription(sdp);
             const stream = new MediaStream();
             if(remoteVideoRef.current) {
                 remoteVideoRef.current.srcObject = stream;
