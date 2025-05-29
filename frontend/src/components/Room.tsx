@@ -115,8 +115,19 @@ export const Room = ({
             setLobby(true);
         })
 
-        socket.on("add -ice-candidate" , ({candidate}) => {
-            
+        socket.on("add-ice-candidate" , ({candidate , type}) => {
+            if(type == "sender") {
+                setReceivingPc(pc => {
+                    pc?.addIceCandidate(candidate);
+                    return;
+                });
+            }
+            else {
+                setReceivingPc(pc => {
+                    pc?.addIceCandidate(candidate);
+                    return;
+                });
+            }
         })
 
         setSocket(socket);
