@@ -41,20 +41,24 @@ export const Room = ({
                 pc.addTrack(localAudioTrack);
             }
 
-            // pc.onicecandidate = async (e) => {
-            //     if(e.candidate) {
-            //         pc.addIceCandidate(e.candidate);
-            //     }
-            // }
+            pc.onicecandidate = async (e) => {
+                if(e.candidate) {
+                    socket.emit("add-ice-candidate" , {
+                        candidate: e.candidate,
+                        type: "sender"
+                    })
+                }
+            }
 
             pc.onnegotiationneeded = async () => {
-                alert("On negotiation needed");
-                const sdp = await pc.createOffer();
-                pc.setLocalDescription(sdp.sdp);
-                socket.emit("offer" , {
-                    sdp,
-                    roomId
-                })
+                setTimeout(async () => {
+                    const sdp = await pc.createOffer();
+                    pc.setLocalDescription(sdp);
+                    socket.emit("offer" , {
+                        sdp,
+                        roomId
+                    })
+                } , 2000)
             }
         })
 
@@ -72,6 +76,17 @@ export const Room = ({
             }
             setRemoteMediaStream(stream);
             setReceivingPc(pc);
+
+             pc.onicecandidate = async (e) => {
+                if(e.candidate) {
+                    socket.emit("add-ice-candidate" , {
+                        candidate: e.candidate,
+                        type: "reciever"
+                    })
+                }
+             }
+
+
             pc.ontrack = ({track , type}) => {
                 if(type == "audio") {
                     // setRemoteAudioTrack(track);
@@ -99,6 +114,11 @@ export const Room = ({
         socket.on("lobby" , () => {
             setLobby(true);
         })
+
+        socket.on("add -ice-candidate" , ({candidate}) => {
+            
+        })
+
         setSocket(socket);
     } , [name])
 
