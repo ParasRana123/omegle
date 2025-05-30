@@ -20,17 +20,17 @@ An anonymous peer-to-peer video & audio chat application that mimics Omegle’s 
 ## Project Structure
 
 ```bash
-├── backend/             # Code for the backend
+├── backend/                        # Code for the backend
 │   ├── src/           
-│   │     ├── aws.ts         
-│   │     ├── file.ts     
-│   │     ├── index.ts     
-│   │     └── utils.ts   
-├── frontend/             # Code for the frontend
+│   │     ├── managers/       
+│   │     │    ├── RoomManager.ts   # Schema for the room   
+│   │     │    └── UserManager.ts   # Schema for the users  
+│   │     └── index.ts              # Main routes
+├── frontend/                       # Code for the frontend
 │   ├── src/        
-│   │     ├── Landing.tsx             
-│   │     └── Room.tsx            
-└── README.md             # Documentation for the project
+│   │     ├── Landing.tsx           # Landing Page       
+│   │     └── Room.tsx              # Contains WebRTC integration
+└── README.md                       # Documentation for the project
 ```
 
 ## Installation
@@ -39,77 +39,31 @@ An anonymous peer-to-peer video & audio chat application that mimics Omegle’s 
 
 ```bash
 git clone [repository-url]
-cd vercel
+cd omegle
 ```
 
-2. **Install the Upload Service dependencies**
+2. **Install the Backend dependencies**
 
 ```bash
-cd vercel-upload-service
+cd backend
 npm install
 ```
 
-3. **Install the Deploy Service dependencies**
-
-```bash
-cd vercel-deploy-service
-npm install
-```
-
-4. **Install the Request Handler dependencies**
-
-```bash
-cd request-handler-service
-npm install
-```
-
-5. **Install the Frontend dependencies**
+3. **Install the Frontend dependencies**
 
 ```bash
 cd frontend
 npm install
 ```
 
-6. **Create a `.env` file in all the three folders `vercel-upload-service`, `vercel-deploy-service` and `vercel-request-handler`**
-
-    Navigate to these folders and create a `.env` using:
-    ``` bash
-    cd vercel-upload-service
-    echo. > .env
-    ```  
-
-    ``` bash
-    cd vercel-deploy-service
-    echo. > .env
-    ```
-
-    ``` bash
-    cd vercel-request-handler
-    echo. > .env
-    ```
-
-7. **Start the vercel-upload-service server**
+4. **Start the backend server**
 
 ```bash
-cd vercel-upload-service
+cd backend
 npm run dev
 ```
 
-8. **Start the vercel-deploy-service server**
-
-```bash
-cd vercel-dpeloy-service
-npm run dev
-```
-
-9. **Start the vercel-request-handler server**
-
-```bash
-cd request-handler-service
-npm run dev
-```
-
-10. **Start the frontend application**
+5. **Start the frontend application**
 
 ```bash
 cd frontend
