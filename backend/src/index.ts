@@ -8,10 +8,22 @@ const server = http.createServer(app);
 
 const userManager = new UserManager();
 
+const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
+
 const io = new Server(server, {
     cors: {
-        origin: "*"
+        origin: CORS_ORIGIN,
+        methods: ["GET", "POST"]
     }
+});
+
+// Health check endpoint for hosting platforms (Render, Railway, etc.)
+app.get("/", (_req, res) => {
+    res.json({ status: "ok", message: "Omegle signaling server is active." });
+});
+
+app.get("/health", (_req, res) => {
+    res.status(200).send("OK");
 });
 
 io.on("connection", (socket: Socket) => {

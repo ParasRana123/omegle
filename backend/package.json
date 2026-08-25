@@ -1,19 +1,23 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "npx tsc -b",
-    "start" : "node dist/index.js",
-    "dev" : "npm run build && npm run start"
+    "build": "tsc -b",
+    "start": "node dist/index.js",
+    "dev": "tsc -b && node dist/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Omegle clone signaling backend server",
   "dependencies": {
-    "@types/express": "^5.0.2",
     "express": "^5.1.0",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.13.4",
+    "typescript": "^5.8.2"
   }
 }
