@@ -18,169 +18,184 @@ export const Room = ({
     const [socket, setSocket] = useState<null | Socket>(null);
     const [sendingPc, setSendingPc] = useState<null | RTCPeerConnection>(null);
     const [receivingPc, setReceivingPc] = useState<null | RTCPeerConnection>(null);
-    const [remoteVideoTrack, setRemoteVideoTrack] = useState<MediaStreamTrack | null>(null);
-    const [remoteAudioTrack, setRemoteAudioTrack] = useState<MediaStreamTrack | null>(null);
-    const [remoteMediaStream, setRemoteMediaStream] = useState<MediaStream | null>(null);
-    const remoteVideoRef = useRef<HTMLVideoElement>();
-    const localVideoRef = useRef<HTMLVideoElement>();
+    const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+    const localVideoRef = useRef<HTMLVideoElement | null>(null);
 
     useEffect(() => {
         const socket = io(URL);
-        socket.on('send-offer', async ({roomId}) => {
+
+        socket.on('send-offer', async ({ roomId }) => {
             console.log("sending offer");
             setLobby(false);
             const pc = new RTCPeerConnection();
-
             setSendingPc(pc);
-            if (localVideoTrack) {
-                console.error("added tack");
-                console.log(localVideoTrack)
-                pc.addTrack(localVideoTrack)
+
+            if (localVideoTrack) pc.addTrack(localVideoTrack);
+            if (localAudioTrack) pc.addTrack(localAudioTrack);
+
+            // Prepare a stream to receive the remote tracks on THIS pc too
+            const remoteStream = new MediaStream();
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = remoteStream;
             }
-            if (localAudioTrack) {
-                console.error("added tack");
-                console.log(localAudioTrack)
-                pc.addTrack(localAudioTrack)
-            }
+
+            pc.ontrack = (e) => {
+                console.log("ontrack (sender side)", e.track.kind);
+                remoteStream.addTrack(e.track);
+                remoteVideoRef.current?.play().catch(() => {});
+            };
 
             pc.onicecandidate = async (e) => {
-                console.log("receiving ice candidate locally");
                 if (e.candidate) {
-                   socket.emit("add-ice-candidate", {
-                    candidate: e.candidate,
-                    type: "sender",
-                    roomId
-                   })
+                    socket.emit("add-ice-candidate", {
+                        candidate: e.candidate,
+                        type: "sender",
+                        roomId
+                    });
                 }
-            }
+            };
 
             pc.onnegotiationneeded = async () => {
-                console.log("on negotiation neeeded, sending offer");
+                console.log("on negotiation needed, sending offer");
                 const sdp = await pc.createOffer();
-                //@ts-ignore
-                pc.setLocalDescription(sdp)
-                socket.emit("offer", {
-                    sdp,
-                    roomId
-                })
-            }
+                await pc.setLocalDescription(sdp);
+                socket.emit("offer", { sdp, roomId });
+            };
         });
 
-        socket.on("offer", async ({roomId, sdp: remoteSdp}) => {
+        socket.on("offer", async ({ roomId, sdp: remoteSdp }) => {
             console.log("received offer");
             setLobby(false);
             const pc = new RTCPeerConnection();
-            pc.setRemoteDescription(remoteSdp)
-            const sdp = await pc.createAnswer();
-            //@ts-ignore
-            pc.setLocalDescription(sdp)
-            const stream = new MediaStream();
-            if (remoteVideoRef.current) {
-                remoteVideoRef.current.srcObject = stream;
-            }
-
-            setRemoteMediaStream(stream);
-            // trickle ice 
             setReceivingPc(pc);
             window.pcr = pc;
-            pc.ontrack = (e) => {
-                alert("ontrack");
+
+            await pc.setRemoteDescription(remoteSdp);
+
+            const remoteStream = new MediaStream();
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = remoteStream;
             }
 
+            pc.ontrack = (e) => {
+                console.log("ontrack (receiver side)", e.track.kind);
+                remoteStream.addTrack(e.track);
+                remoteVideoRef.current?.play().catch(() => {});
+            };
+
+            // Also send our own tracks back so it's a real 2-way call
+            if (localVideoTrack) pc.addTrack(localVideoTrack);
+            if (localAudioTrack) pc.addTrack(localAudioTrack);
+
+            const sdp = await pc.createAnswer();
+            await pc.setLocalDescription(sdp);
+
             pc.onicecandidate = async (e) => {
-                if (!e.candidate) {
-                    return;
-                }
-                console.log("omn ice candidate on receiving seide");
-                if (e.candidate) {
-                   socket.emit("add-ice-candidate", {
+                if (!e.candidate) return;
+                socket.emit("add-ice-candidate", {
                     candidate: e.candidate,
                     type: "receiver",
                     roomId
-                   })
-                }
-            }
+                });
+            };
 
-            socket.emit("answer", {
-                roomId,
-                sdp: sdp
-            });
-            setTimeout(() => {
-                const track1 = pc.getTransceivers()[0].receiver.track
-                const track2 = pc.getTransceivers()[1].receiver.track
-                console.log(track1);
-                if (track1.kind === "video") {
-                    setRemoteAudioTrack(track2)
-                    setRemoteVideoTrack(track1)
-                } else {
-                    setRemoteAudioTrack(track1)
-                    setRemoteVideoTrack(track2)
-                }
-                //@ts-ignore
-                remoteVideoRef.current.srcObject.addTrack(track1)
-                //@ts-ignore
-                remoteVideoRef.current.srcObject.addTrack(track2)
-                //@ts-ignore
-                remoteVideoRef.current.play();
-                // //@ts-ignore
-            }, 5000)
+            socket.emit("answer", { roomId, sdp });
         });
 
-        socket.on("answer", ({roomId, sdp: remoteSdp}) => {
+        socket.on("answer", ({ roomId, sdp: remoteSdp }) => {
             setLobby(false);
             setSendingPc(pc => {
-                pc?.setRemoteDescription(remoteSdp)
+                pc?.setRemoteDescription(remoteSdp);
                 return pc;
             });
             console.log("loop closed");
-        })
+        });
 
         socket.on("lobby", () => {
             setLobby(true);
-        })
+        });
 
-        socket.on("add-ice-candidate", ({candidate, type}) => {
-            console.log("add ice candidate from remote");
-            console.log({candidate, type})
+        socket.on("add-ice-candidate", ({ candidate, type }) => {
             if (type == "sender") {
                 setReceivingPc(pc => {
-                    if (!pc) {
-                        console.error("receicng pc nout found")
-                    } else {
-                        console.error(pc.ontrack)
-                    }
-                    pc?.addIceCandidate(candidate)
+                    pc?.addIceCandidate(candidate);
                     return pc;
                 });
             } else {
                 setSendingPc(pc => {
-                    if (!pc) {
-                        console.error("sending pc nout found")
-                    } else {
-                        console.error(pc.ontrack)
-                    }
-                    pc?.addIceCandidate(candidate)
+                    pc?.addIceCandidate(candidate);
                     return pc;
                 });
             }
-        })
+        });
 
-        setSocket(socket)
-    }, [name])
+        setSocket(socket);
 
+        return () => {
+            socket.disconnect();
+        };
+    }, [name]);
+
+    // FIX: depend on localVideoTrack, not the ref (which never changes identity)
     useEffect(() => {
-        if (localVideoRef.current) {
-            if (localVideoTrack) {
-                localVideoRef.current.srcObject = new MediaStream([localVideoTrack]);
-                localVideoRef.current.play();
-            }
+        if (localVideoRef.current && localVideoTrack) {
+            localVideoRef.current.srcObject = new MediaStream([localVideoTrack]);
+            localVideoRef.current.play().catch(() => {});
         }
-    }, [localVideoRef])
+    }, [localVideoTrack]);
 
-    return <div>
-        Hi {name}
-        <video autoPlay width={400} height={400} ref={localVideoRef} />
-        {lobby ? "Waiting to connect you to someone" : null}
-        <video autoPlay width={400} height={400} ref={remoteVideoRef} />
-    </div>
+    return (
+        <div style={styles.page}>
+            <h2 style={styles.heading}>Hi {name}</h2>
+            {lobby ? (
+                <p style={styles.lobbyText}>Waiting to connect you to someone...</p>
+            ) : null}
+            <div style={styles.videoRow}>
+                <div style={styles.videoBox}>
+                    <video autoPlay muted ref={localVideoRef} style={styles.video} />
+                    <span style={styles.label}>You</span>
+                </div>
+                <div style={styles.videoBox}>
+                    <video autoPlay ref={remoteVideoRef} style={styles.video} />
+                    <span style={styles.label}>Remote</span>
+                </div>
+            </div>
+        </div>
+    );
 }
+
+const styles: { [key: string]: React.CSSProperties } = {
+    page: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        minHeight: "100vh",
+        background: "#111827",
+        fontFamily: "sans-serif",
+        padding: "24px",
+    },
+    heading: { color: "#f9fafb", marginBottom: "8px" },
+    lobbyText: { color: "#9ca3af", marginBottom: "16px" },
+    videoRow: {
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        gap: "24px",
+        marginTop: "16px",
+    },
+    videoBox: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "8px",
+    },
+    video: {
+        width: "400px",
+        height: "400px",
+        borderRadius: "12px",
+        background: "#000",
+        objectFit: "cover",
+        border: "2px solid #374151",
+    },
+    label: { color: "#d1d5db", fontSize: "14px", fontWeight: 600 },
+};
