@@ -93,6 +93,8 @@ export class UserManager {
         socket.removeAllListeners("answer");
         socket.removeAllListeners("add-ice-candidate");
         socket.removeAllListeners("next");
+        socket.removeAllListeners("chat-message");
+        socket.removeAllListeners("typing");
 
         socket.on("offer", ({ sdp, roomId }: { sdp: any, roomId: string }) => {
             this.roomManager.onOffer(roomId, sdp, socket.id);
@@ -104,6 +106,16 @@ export class UserManager {
 
         socket.on("add-ice-candidate", ({ candidate, roomId }: { candidate: any, roomId: string }) => {
             this.roomManager.onIceCandidates(roomId, socket.id, candidate);
+        });
+
+        socket.on("chat-message", ({ message, roomId }: { message: string, roomId: string }) => {
+            if (typeof message === "string" && message.trim().length > 0) {
+                this.roomManager.onChatMessage(roomId, socket.id, message.trim());
+            }
+        });
+
+        socket.on("typing", ({ isTyping, roomId }: { isTyping: boolean, roomId: string }) => {
+            this.roomManager.onTyping(roomId, socket.id, Boolean(isTyping));
         });
 
         socket.on("next", () => {

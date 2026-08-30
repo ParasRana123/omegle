@@ -73,6 +73,32 @@ export class RoomManager {
         receivingUser.socket.emit("add-ice-candidate", { candidate });
     }
 
+    onChatMessage(roomId: string, senderSocketId: string, message: string) {
+        const room = this.rooms.get(roomId);
+        if (!room) {
+            return;
+        }
+        const receivingUser = room.user1.socket.id === senderSocketId ? room.user2 : room.user1;
+        const sendingUser = room.user1.socket.id === senderSocketId ? room.user1 : room.user2;
+
+        receivingUser.socket.emit("chat-message", {
+            message,
+            senderName: sendingUser.name,
+            timestamp: Date.now()
+        });
+    }
+
+    onTyping(roomId: string, senderSocketId: string, isTyping: boolean) {
+        const room = this.rooms.get(roomId);
+        if (!room) {
+            return;
+        }
+        const receivingUser = room.user1.socket.id === senderSocketId ? room.user2 : room.user1;
+        receivingUser.socket.emit("typing", {
+            isTyping
+        });
+    }
+
     onUserDisconnected(socketId: string): User | null {
         for (const [roomId, room] of this.rooms.entries()) {
             if (room.user1.socket.id === socketId || room.user2.socket.id === socketId) {
