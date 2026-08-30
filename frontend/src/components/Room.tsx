@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Socket, io } from "socket.io-client";
+import { ChatBox, type ChatMessage } from "./ChatBox";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
 
@@ -23,11 +24,23 @@ export const Room = ({
     const [isAudioMuted, setIsAudioMuted] = useState(false);
     const [isVideoMuted, setIsVideoMuted] = useState(false);
 
+    // Chat state
+    const [messages, setMessages] = useState<ChatMessage[]>([
+        {
+            id: "init-search",
+            sender: "system",
+            text: "Looking for someone you can chat with...",
+            systemType: "searching"
+        }
+    ]);
+    const [isStrangerTyping, setIsStrangerTyping] = useState(false);
+
     const socketRef = useRef<Socket | null>(null);
     const pcRef = useRef<RTCPeerConnection | null>(null);
     const remoteMediaStreamRef = useRef<MediaStream>(new MediaStream());
     const queuedIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
     const roomIdRef = useRef<string | null>(null);
+    const remoteNameRef = useRef<string>("");
 
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
     const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -127,18 +140,43 @@ export const Room = ({
             console.log("In lobby waiting for peer...");
             setLobby(true);
             setRemoteName("");
+            remoteNameRef.current = "";
             setPartnerDisconnected(false);
             setConnectionStatus("waiting");
+            setIsStrangerTyping(false);
             cleanupPeerConnection();
+
+            setMessages(prev => [
+                ...prev,
+                {
+                    id: "lobby-" + Date.now(),
+                    sender: "system",
+                    text: "Looking for someone you can chat with...",
+                    systemType: "searching"
+                }
+            ]);
         });
 
         // Server assigns this client as the OFFER INITIATOR
         socket.on("send-offer", async ({ roomId, remoteName: rName }: { roomId: string, remoteName: string }) => {
             console.log("Designated offer initiator for room:", roomId, "with peer:", rName);
+            const peerName = rName || "Stranger";
             setLobby(false);
-            setRemoteName(rName || "Stranger");
+            setRemoteName(peerName);
+            remoteNameRef.current = peerName;
             setPartnerDisconnected(false);
             setConnectionStatus("connecting");
+            setIsStrangerTyping(false);
+
+            setMessages(prev => [
+                ...prev,
+                {
+                    id: "connected-" + Date.now(),
+                    sender: "system",
+                    text: `You're now chatting with ${peerName}. Say hi!`,
+                    systemType: "connected"
+                }
+            ]);
 
             try {
                 const pc = createPeerConnection(socket, roomId);
@@ -153,10 +191,24 @@ export const Room = ({
         // Server informs receiver that room is matched
         socket.on("room-joined", ({ roomId, remoteName: rName }: { roomId: string, remoteName: string }) => {
             console.log("Joined room:", roomId, "with peer:", rName);
+            const peerName = rName || "Stranger";
             setLobby(false);
-            setRemoteName(rName || "Stranger");
+            setRemoteName(peerName);
+            remoteNameRef.current = peerName;
             setPartnerDisconnected(false);
             setConnectionStatus("connecting");
+            setIsStrangerTyping(false);
+
+            setMessages(prev => [
+                ...prev,
+                {
+                    id: "connected-" + Date.now(),
+                    sender: "system",
+                    text: `You're now chatting with ${peerName}. Say hi!`,
+                    systemType: "connected"
+                }
+            ]);
+
             createPeerConnection(socket, roomId);
         });
 
@@ -164,7 +216,10 @@ export const Room = ({
         socket.on("offer", async ({ roomId, sdp, remoteName: rName }: { roomId: string, sdp: any, remoteName?: string }) => {
             console.log("Received offer from initiator for room:", roomId);
             setLobby(false);
-            if (rName) setRemoteName(rName);
+            if (rName) {
+                setRemoteName(rName);
+                remoteNameRef.current = rName;
+            }
             setPartnerDisconnected(false);
             setConnectionStatus("connecting");
 
@@ -223,12 +278,43 @@ export const Room = ({
             }
         });
 
+        // Receive text chat message from peer
+        socket.on("chat-message", ({ message, timestamp }: { message: string, senderName?: string, timestamp?: number }) => {
+            const timeStr = new Date(timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            setMessages(prev => [
+                ...prev,
+                {
+                    id: "msg-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+                    sender: "stranger",
+                    text: message,
+                    time: timeStr
+                }
+            ]);
+        });
+
+        // Receive typing indicator from peer
+        socket.on("typing", ({ isTyping }: { isTyping: boolean }) => {
+            setIsStrangerTyping(Boolean(isTyping));
+        });
+
         // Server informs that peer disconnected
         socket.on("peer-disconnected", () => {
             console.log("Partner disconnected");
+            const pName = remoteNameRef.current || "Stranger";
             setPartnerDisconnected(true);
             setConnectionStatus("disconnected");
+            setIsStrangerTyping(false);
             cleanupPeerConnection();
+
+            setMessages(prev => [
+                ...prev,
+                {
+                    id: "disc-" + Date.now(),
+                    sender: "system",
+                    text: `${pName} has disconnected.`,
+                    systemType: "disconnected"
+                }
+            ]);
         });
 
         return () => {
@@ -245,12 +331,53 @@ export const Room = ({
         }
     }, [localVideoTrack]);
 
+    const handleSendMessage = (text: string) => {
+        if (!roomIdRef.current || !socketRef.current) return;
+
+        socketRef.current.emit("chat-message", {
+            roomId: roomIdRef.current,
+            message: text
+        });
+
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setMessages(prev => [
+            ...prev,
+            {
+                id: "msg-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+                sender: "you",
+                text: text,
+                time: timeStr
+            }
+        ]);
+    };
+
+    const handleTyping = (isTyping: boolean) => {
+        if (!roomIdRef.current || !socketRef.current) return;
+        socketRef.current.emit("typing", {
+            roomId: roomIdRef.current,
+            isTyping
+        });
+    };
+
     const handleNext = () => {
         cleanupPeerConnection();
         setLobby(true);
         setPartnerDisconnected(false);
         setRemoteName("");
+        remoteNameRef.current = "";
         setConnectionStatus("waiting");
+        setIsStrangerTyping(false);
+
+        setMessages(prev => [
+            ...prev,
+            {
+                id: "next-" + Date.now(),
+                sender: "system",
+                text: "Looking for someone you can chat with...",
+                systemType: "searching"
+            }
+        ]);
+
         socketRef.current?.emit("next");
     };
 
@@ -293,59 +420,10 @@ export const Room = ({
                 </button>
             </header>
 
-            {/* Main Content Area */}
+            {/* Split Screen Layout (Left: Videos, Right: Live Text Chat) */}
             <main style={styles.mainContainer}>
-                {/* Status Bar */}
-                <div style={styles.statusCard}>
-                    {lobby ? (
-                        <div style={styles.lobbyBanner}>
-                            <span style={styles.spinner}></span>
-                            <span>Looking for a stranger to pair with...</span>
-                        </div>
-                    ) : partnerDisconnected ? (
-                        <div style={styles.disconnectedBanner}>
-                            <span>⚠️ <strong>{remoteName || "Stranger"}</strong> has disconnected.</span>
-                            <button onClick={handleNext} style={styles.nextButtonInline}>
-                                Find Next Stranger ⏭️
-                            </button>
-                        </div>
-                    ) : (
-                        <div style={styles.connectedBanner}>
-                            <span>🟢 Connected with <strong>{remoteName || "Stranger"}</strong></span>
-                        </div>
-                    )}
-                </div>
-
-                {/* Video Tiles Grid */}
-                <div style={styles.videoGrid}>
-                    {/* Local Video Tile */}
-                    <div style={styles.videoTile}>
-                        <div style={styles.tileHeader}>
-                            <span style={styles.tileBadgeYou}>You ({name})</span>
-                            <span style={styles.tileStatusBadge}>
-                                {isVideoMuted ? "📷 Off" : "📷 On"} | {isAudioMuted ? "🔇 Muted" : "🎤 On"}
-                            </span>
-                        </div>
-                        <div style={styles.videoWrapper}>
-                            <video
-                                autoPlay
-                                playsInline
-                                muted
-                                ref={localVideoRef}
-                                style={{
-                                    ...styles.videoElement,
-                                    transform: "scaleX(-1)", // Mirror selfie view
-                                    opacity: isVideoMuted ? 0 : 1
-                                }}
-                            />
-                            {isVideoMuted ? (
-                                <div style={styles.videoOffPlaceholder}>
-                                    <span>Camera Turned Off</span>
-                                </div>
-                            ) : null}
-                        </div>
-                    </div>
-
+                {/* Left Half: Video Stream Column */}
+                <section style={styles.videoColumn}>
                     {/* Remote Video Tile */}
                     <div style={styles.videoTile}>
                         <div style={styles.tileHeader}>
@@ -379,48 +457,85 @@ export const Room = ({
                             ) : null}
                         </div>
                     </div>
-                </div>
 
-                {/* Controls Footer */}
-                <div style={styles.controlsBar}>
-                    <button
-                        onClick={toggleAudio}
-                        style={{
-                            ...styles.controlBtn,
-                            backgroundColor: isAudioMuted ? "#ef4444" : "#334155"
-                        }}
-                        title={isAudioMuted ? "Unmute Microphone" : "Mute Microphone"}
-                    >
-                        {isAudioMuted ? "🔇 Unmute Mic" : "🎤 Mute Mic"}
-                    </button>
+                    {/* Local Video Tile */}
+                    <div style={styles.videoTile}>
+                        <div style={styles.tileHeader}>
+                            <span style={styles.tileBadgeYou}>You ({name})</span>
+                            <span style={styles.tileStatusBadge}>
+                                {isVideoMuted ? "📷 Off" : "📷 On"} | {isAudioMuted ? "🔇 Muted" : "🎤 On"}
+                            </span>
+                        </div>
+                        <div style={styles.videoWrapper}>
+                            <video
+                                autoPlay
+                                playsInline
+                                muted
+                                ref={localVideoRef}
+                                style={{
+                                    ...styles.videoElement,
+                                    transform: "scaleX(-1)", // Mirror selfie view
+                                    opacity: isVideoMuted ? 0 : 1
+                                }}
+                            />
+                            {isVideoMuted ? (
+                                <div style={styles.videoOffPlaceholder}>
+                                    <span>Camera Turned Off</span>
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
 
-                    <button
-                        onClick={toggleVideo}
-                        style={{
-                            ...styles.controlBtn,
-                            backgroundColor: isVideoMuted ? "#ef4444" : "#334155"
-                        }}
-                        title={isVideoMuted ? "Turn Video On" : "Turn Video Off"}
-                    >
-                        {isVideoMuted ? "📷 Enable Video" : "📹 Disable Video"}
-                    </button>
+                    {/* Media Controls Bar */}
+                    <div style={styles.mediaControlsBar}>
+                        <button
+                            onClick={toggleAudio}
+                            style={{
+                                ...styles.mediaControlBtn,
+                                backgroundColor: isAudioMuted ? "#ef4444" : "#1e293b",
+                                borderColor: isAudioMuted ? "#ef4444" : "#475569"
+                            }}
+                            title={isAudioMuted ? "Unmute Microphone" : "Mute Microphone"}
+                        >
+                            {isAudioMuted ? "🔇 Unmute Mic" : "🎤 Mute Mic"}
+                        </button>
 
-                    <button
-                        onClick={handleNext}
-                        style={styles.nextBtn}
-                        title="Skip to next stranger"
-                    >
-                        ⏭️ Next Stranger
-                    </button>
+                        <button
+                            onClick={toggleVideo}
+                            style={{
+                                ...styles.mediaControlBtn,
+                                backgroundColor: isVideoMuted ? "#ef4444" : "#1e293b",
+                                borderColor: isVideoMuted ? "#ef4444" : "#475569"
+                            }}
+                            title={isVideoMuted ? "Turn Video On" : "Turn Video Off"}
+                        >
+                            {isVideoMuted ? "📷 Enable Video" : "📹 Disable Video"}
+                        </button>
 
-                    <button
-                        onClick={handleLeave}
-                        style={styles.exitBtn}
-                        title="Leave video chat"
-                    >
-                        🚪 Leave Chat
-                    </button>
-                </div>
+                        <button
+                            onClick={handleNext}
+                            style={styles.nextBtnCompact}
+                            title="Skip to next stranger (Esc)"
+                        >
+                            ⏭️ Next Stranger
+                        </button>
+                    </div>
+                </section>
+
+                {/* Right Half: Live Text Chat Column */}
+                <section style={styles.chatColumn}>
+                    <ChatBox
+                        messages={messages}
+                        isStrangerTyping={isStrangerTyping}
+                        isConnected={connectionStatus === "connected" || (!lobby && !partnerDisconnected)}
+                        isLobby={lobby}
+                        isPartnerDisconnected={partnerDisconnected}
+                        remoteName={remoteName || "Stranger"}
+                        onSendMessage={handleSendMessage}
+                        onNext={handleNext}
+                        onTyping={handleTyping}
+                    />
+                </section>
             </main>
         </div>
     );
@@ -430,19 +545,24 @@ const styles: { [key: string]: React.CSSProperties } = {
     page: {
         display: "flex",
         flexDirection: "column",
-        minHeight: "100vh",
+        height: "100vh",
+        maxHeight: "100vh",
         background: "radial-gradient(ellipse at top, #0f172a 0%, #020617 100%)",
         color: "#f8fafc",
         fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        overflow: "hidden",
     },
     navbar: {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "12px 28px",
-        background: "rgba(15, 23, 42, 0.8)",
+        padding: "10px 24px",
+        background: "rgba(15, 23, 42, 0.85)",
         backdropFilter: "blur(10px)",
         borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+        flexShrink: 0,
+        height: "56px",
+        boxSizing: "border-box",
     },
     brandContainer: {
         display: "flex",
@@ -470,7 +590,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         display: "flex",
         alignItems: "center",
         gap: "8px",
-        fontSize: "14px",
+        fontSize: "13px",
         color: "#cbd5e1",
     },
     navUserDot: {
@@ -489,100 +609,57 @@ const styles: { [key: string]: React.CSSProperties } = {
         border: "1px solid #475569",
         background: "transparent",
         color: "#e2e8f0",
-        fontSize: "13px",
+        fontSize: "12px",
+        fontWeight: 600,
         cursor: "pointer",
         transition: "all 0.2s ease",
     },
     mainContainer: {
         flex: 1,
         display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "16px 24px 32px 24px",
-        maxWidth: "1200px",
+        flexDirection: "row",
+        padding: "16px 20px",
+        maxWidth: "1500px",
         width: "100%",
         margin: "0 auto",
         boxSizing: "border-box",
-        gap: "16px",
+        gap: "18px",
+        height: "calc(100vh - 56px)",
+        overflow: "hidden",
     },
-    statusCard: {
-        width: "100%",
-        maxWidth: "960px",
-    },
-    lobbyBanner: {
+    videoColumn: {
+        flex: "1 1 50%",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        flexDirection: "column",
         gap: "12px",
-        background: "rgba(59, 130, 246, 0.15)",
-        border: "1px solid rgba(59, 130, 246, 0.3)",
-        color: "#93c5fd",
-        padding: "10px 20px",
-        borderRadius: "12px",
-        fontSize: "14px",
-        fontWeight: 500,
+        height: "100%",
+        minWidth: "320px",
     },
-    connectedBanner: {
+    chatColumn: {
+        flex: "1 1 50%",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "8px",
-        background: "rgba(34, 197, 94, 0.15)",
-        border: "1px solid rgba(34, 197, 94, 0.3)",
-        color: "#86efac",
-        padding: "10px 20px",
-        borderRadius: "12px",
-        fontSize: "14px",
-        fontWeight: 500,
-    },
-    disconnectedBanner: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "16px",
-        background: "rgba(239, 68, 68, 0.15)",
-        border: "1px solid rgba(239, 68, 68, 0.3)",
-        color: "#fca5a5",
-        padding: "8px 20px",
-        borderRadius: "12px",
-        fontSize: "14px",
-        fontWeight: 500,
-    },
-    nextButtonInline: {
-        padding: "6px 14px",
-        borderRadius: "8px",
-        border: "none",
-        background: "#4f46e5",
-        color: "#fff",
-        fontWeight: 600,
-        fontSize: "12px",
-        cursor: "pointer",
-    },
-    videoGrid: {
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-        gap: "20px",
-        width: "100%",
-        maxWidth: "960px",
-        flex: 1,
+        flexDirection: "column",
+        height: "100%",
+        minWidth: "320px",
     },
     videoTile: {
+        flex: 1,
         background: "rgba(30, 41, 59, 0.7)",
         backdropFilter: "blur(8px)",
-        borderRadius: "16px",
+        borderRadius: "14px",
         border: "1px solid rgba(255, 255, 255, 0.08)",
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.3)",
-        height: "380px",
+        boxShadow: "0 8px 20px rgba(0, 0, 0, 0.3)",
+        minHeight: "180px",
     },
     tileHeader: {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "10px 14px",
-        background: "rgba(15, 23, 42, 0.6)",
+        padding: "8px 12px",
+        background: "rgba(15, 23, 42, 0.65)",
         borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
     },
     tileBadgeYou: {
@@ -591,7 +668,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         color: "#a5b4fc",
         fontSize: "12px",
         fontWeight: 600,
-        padding: "3px 8px",
+        padding: "2px 8px",
         borderRadius: "6px",
     },
     tileBadgeStranger: {
@@ -600,7 +677,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         color: "#d8b4fe",
         fontSize: "12px",
         fontWeight: 600,
-        padding: "3px 8px",
+        padding: "2px 8px",
         borderRadius: "6px",
     },
     tileStatusBadge: {
@@ -632,56 +709,44 @@ const styles: { [key: string]: React.CSSProperties } = {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: "12px",
+        gap: "10px",
         color: "#94a3b8",
         fontSize: "13px",
         background: "#090d16",
     },
-    controlsBar: {
+    mediaControlsBar: {
         display: "flex",
-        flexWrap: "wrap",
         justifyContent: "center",
         alignItems: "center",
-        gap: "12px",
-        padding: "12px 24px",
+        gap: "10px",
+        padding: "10px 16px",
         background: "rgba(30, 41, 59, 0.8)",
         backdropFilter: "blur(12px)",
-        borderRadius: "16px",
+        borderRadius: "12px",
         border: "1px solid rgba(255, 255, 255, 0.08)",
-        boxShadow: "0 8px 20px rgba(0,0,0,0.3)",
-        marginTop: "8px",
+        boxShadow: "0 6px 16px rgba(0,0,0,0.3)",
+        flexShrink: 0,
     },
-    controlBtn: {
-        padding: "10px 18px",
-        borderRadius: "10px",
-        border: "none",
+    mediaControlBtn: {
+        padding: "8px 14px",
+        borderRadius: "8px",
+        border: "1px solid #475569",
         color: "#ffffff",
-        fontSize: "13px",
+        fontSize: "12.5px",
         fontWeight: 600,
         cursor: "pointer",
         transition: "all 0.2s ease",
     },
-    nextBtn: {
-        padding: "10px 22px",
-        borderRadius: "10px",
+    nextBtnCompact: {
+        padding: "8px 16px",
+        borderRadius: "8px",
         border: "none",
         background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
         color: "#ffffff",
-        fontSize: "14px",
+        fontSize: "12.5px",
         fontWeight: 700,
         cursor: "pointer",
-        boxShadow: "0 4px 12px rgba(79, 70, 229, 0.4)",
-        transition: "all 0.2s ease",
-    },
-    exitBtn: {
-        padding: "10px 18px",
-        borderRadius: "10px",
-        border: "1px solid #475569",
-        background: "#1e293b",
-        color: "#cbd5e1",
-        fontSize: "13px",
-        fontWeight: 600,
-        cursor: "pointer",
+        boxShadow: "0 2px 8px rgba(79, 70, 229, 0.4)",
         transition: "all 0.2s ease",
     },
     spinner: {
