@@ -22,3 +22,63 @@ html, body, #root {
     transform: rotate(360deg);
   }
 }
+
+@keyframes typingPulse {
+  0%, 100% {
+    transform: scale(0.7);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Modern sleek custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+@media (max-width: 860px) {
+  .omegle-page {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+  }
+  .omegle-main-container {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .omegle-video-column {
+    min-height: 420px !important;
+    height: auto !important;
+  }
+  .omegle-chat-column {
+    min-height: 480px !important;
+    height: 480px !important;
+  }
+}

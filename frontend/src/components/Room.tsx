@@ -404,7 +404,7 @@ export const Room = ({
     };
 
     return (
-        <div style={styles.page}>
+        <div className="omegle-page" style={styles.page}>
             {/* Top Navigation Bar */}
             <header style={styles.navbar}>
                 <div style={styles.brandContainer}>
@@ -421,9 +421,9 @@ export const Room = ({
             </header>
 
             {/* Split Screen Layout (Left: Videos, Right: Live Text Chat) */}
-            <main style={styles.mainContainer}>
+            <main className="omegle-main-container" style={styles.mainContainer}>
                 {/* Left Half: Video Stream Column */}
-                <section style={styles.videoColumn}>
+                <section className="omegle-video-column" style={styles.videoColumn}>
                     {/* Remote Video Tile */}
                     <div style={styles.videoTile}>
                         <div style={styles.tileHeader}>
@@ -523,7 +523,7 @@ export const Room = ({
                 </section>
 
                 {/* Right Half: Live Text Chat Column */}
-                <section style={styles.chatColumn}>
+                <section className="omegle-chat-column" style={styles.chatColumn}>
                     <ChatBox
                         messages={messages}
                         isStrangerTyping={isStrangerTyping}

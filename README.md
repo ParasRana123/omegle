@@ -7,9 +7,17 @@ An anonymous peer-to-peer video & audio chat application that mimics Omegle’s 
 
 ## Features
 
+- **Split-Screen Layout**: Left half displays live remote & local video feeds; right half displays an interactive real-time text chat just like real Omegle.
+- **Live Text Messaging**: Bidirectional text chat between connected peers with distinct message styling ("You" vs "Stranger") and timestamps.
+- **Real-Time Typing Indicator**: Instant "Stranger is typing..." notification when your partner is composing a message.
+- **Classic Omegle Controls & Shortcuts**:
+  - `Esc` key shortcut for fast Stop / Really? / Next stranger workflow.
+  - `Enter` key shortcut to send messages instantly.
+  - Multi-state confirmation button (Stop -> Really? -> Next).
+- **System Chat Notifications**: Visual notices for matchmaking search, stranger connected greetings, and partner disconnect events.
 - **Anonymous Matchmaking**: Join with a custom display name and get paired with random users in real time.
 - **Matchmaking Queue**: In-memory queue system that dynamically pairs available users into 1-on-1 rooms.
-- **Socket.IO Signaling**: Real-time signaling mechanism for exchanging SDP offers, answers, and ICE candidates.
+- **Socket.IO Signaling & Chat**: Real-time signaling mechanism for exchanging SDP offers, answers, ICE candidates, chat messages, and typing events.
 - **WebRTC Peer-to-Peer Streaming**: Direct browser-to-browser encrypted high-quality audio and video communication.
 - **NAT Traversal (STUN)**: Configured with Google STUN servers for reliable peer connectivity across different networks.
 - **Camera & Mic Preview**: Pre-join device permission check and live mirrored camera preview.
@@ -30,7 +38,7 @@ An anonymous peer-to-peer video & audio chat application that mimics Omegle’s 
 ├── backend/                        # Signaling server
 │   ├── src/
 │   │   ├── managers/
-│   │   │   ├── RoomManager.ts      # Room lifecycle & WebRTC signaling handlers
+│   │   │   ├── RoomManager.ts      # Room lifecycle, chat message routing & WebRTC signaling
 │   │   │   └── UserManager.ts      # Matchmaking queue & user connection management
 │   │   └── index.ts                # Express server & Socket.IO initialization
 │   ├── .env.example                # Backend environment variables template
@@ -40,9 +48,10 @@ An anonymous peer-to-peer video & audio chat application that mimics Omegle’s 
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── Landing.tsx         # Landing page with camera preview & name input
-│   │   │   └── Room.tsx            # Video chat room & WebRTC peer connection logic
+│   │   │   ├── Room.tsx            # Split-screen video room & WebRTC peer connection logic
+│   │   │   └── ChatBox.tsx         # Real-time Omegle text chat, system notices & typing indicator
 │   │   ├── App.tsx                 # Root application component & routing
-│   │   ├── index.css               # Global styling
+│   │   ├── index.css               # Global styling, custom scrollbars & animations
 │   │   └── main.tsx                # Application entry point
 │   ├── .env.example                # Frontend environment variables template
 │   ├── package.json                # Frontend dependencies and scripts
