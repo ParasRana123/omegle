@@ -3,7 +3,7 @@
 An anonymous peer-to-peer video & audio chat application that mimics Omegle’s core functionality. Built using **Socket.IO** for real-time signaling and **WebRTC** for peer-to-peer media communication.
 
 - **Live Website**: [https://omegle-beta.vercel.app/](https://omegle-beta.vercel.app/)
-- **Demo Video**: [https://res.cloudinary.com/d3ukbssg/video/upload/v1787673475/omegle_record.mp4](https://res.cloudinary.com/d3ukbssg/video/upload/v1787673475/omegle_record.mp4)
+- **Demo Video**: [https://res.cloudinary.com/d3ukbssg/video/upload/v1788110192/Screen_Recording_2026-08-30_222900_1.mp4](https://res.cloudinary.com/d3ukbssg/video/upload/v1788110192/Screen_Recording_2026-08-30_222900_1.mp4)
 
 ## Features
 
